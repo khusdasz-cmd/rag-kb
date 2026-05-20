@@ -1,28 +1,36 @@
 # LLM-RAG-KB
 
-**本地知识库问答系统** — 支持 Ollama / LM Studio / OpenAI 多后端，配合 Chatbox 使用。
+**本地知识库问答系统** — 下载即用，支持 Ollama / LM Studio / OpenAI 多后端，配合 Chatbox 使用。
 
 ## 功能
 
-- **RAG 检索增强生成**：将 PDF 文档导入向量数据库，提问时自动检索相关内容，让 LLM 基于你的文档回答问题
-- **多后端支持**：一个 `.env` 文件切换 Ollama、LM Studio、OpenAI 等任意 OpenAI 兼容 API
-- **纯本地可选**：搭配 Ollama 可实现完全离线，数据不出本机
-- **零配置 UI**：兼容 Chatbox，设好 API 地址即可使用
+- **RAG 检索增强生成**：将 PDF 导入向量数据库，提问时自动检索相关内容，让 LLM 基于你的文档回答
+- **多后端切换**：一个 `.env` 文件切换 Ollama、LM Studio、OpenAI 等任意 OpenAI 兼容 API
+- **纯离线可选**：搭配 Ollama 可实现完全本地运行，数据不出本机
+- **Chatbox 兼容**：零配置 UI，设好 API 地址即可使用
 
 ## 快速开始
 
 ```bash
+# 下载
+git clone https://github.com/khusdasz-cmd/-RAG-.git
+cd -RAG-
+
 # 安装依赖
 pip install -r requirements.txt
 
-# 把 PDF 放入 docs/ 目录，然后导入
+# 编辑配置（首次运行会自动从 .env.example 生成）
+# 按需修改 LLM_TYPE、API Key、模型名等
+vi .env
+
+# 把 PDF 丢进 docs/ 目录，导入向量库
 python ingest.py
 
-# 启动代理
+# 启动
 python rag_proxy.py
 ```
 
-Chatbox → 设置 → AI 模型提供商 → **OpenAI API Compatible**
+然后打开 Chatbox → 设置 → AI 模型提供商 → **OpenAI API Compatible**
 
 | 字段 | 值 |
 |---|---|
@@ -30,11 +38,13 @@ Chatbox → 设置 → AI 模型提供商 → **OpenAI API Compatible**
 | API 地址 | `http://localhost:9124/v1` |
 | 模型 | 按后端填写 |
 
+**无需手动创建任何文件夹。** `.env` 首次自动生成，`docs/` 自动创建，`chroma_db/` 导入时自动生成。
+
 ## 配置
 
-所有配置在 `.env` 文件中（复制 `.env.example` 为 `.env` 后修改）：
+编辑 `.env` 文件切换后端：
 
-### Ollama 模式（默认）
+### Ollama 模式（默认，完全本地）
 
 ```env
 LLM_TYPE=ollama
@@ -49,7 +59,7 @@ OLLAMA_EMBED_MODEL=bge-m3:567m
 LLM_TYPE=openai
 OPENAI_URL=http://127.0.0.1:1234/v1
 OPENAI_KEY=not-needed
-OPENAI_MODEL=your-model-name
+OPENAI_MODEL=你的模型名
 ```
 
 ### OpenAI / 任意 API
@@ -66,26 +76,27 @@ OPENAI_MODEL=gpt-4o-mini
 ```
 ├── rag_proxy.py          # RAG 代理服务（核心）
 ├── ingest.py             # PDF 导入脚本
-├── .env                  # 配置文件（已 gitignore）
+├── .env                  # 配置文件（自动生成，已 gitignore）
 ├── .env.example          # 配置模板
 ├── requirements.txt      # 依赖
-├── chroma_db/            # 向量数据库（自动生成，已 gitignore）
-└── docs/                 # 放 PDF 文件（已 gitignore）
+├── chroma_db/            # 向量数据库（导入时自动生成，已 gitignore）
+└── docs/                 # 放 PDF 文件（自动创建，已 gitignore）
+    └── .gitkeep
 ```
 
 ## 工作原理
 
 ```
-Chatbox 提问 → RAG Proxy → ChromaDB 检索相关文档
-                           → 注入上下文到 prompt
-                           → 转发给 LLM (Ollama/LM Studio/OpenAI)
-                           → 返回带知识库内容的回答
+Chatbox → RAG Proxy → ChromaDB 检索相关文档
+                     → 注入上下文到 prompt
+                     → 转发给 LLM 后端
+                     → 返回带知识库内容的回答
 ```
 
-- **LLM 后端**：可切换（Ollama 本地 / LM Studio 本地 / OpenAI 远程）
-- **Embedding 始终本地**：检索用 Ollama 做向量化，速度快、不花钱、数据不出本机
+- **LLM 后端可切换**：Ollama / LM Studio / OpenAI
+- **Embedding 始终走本地 Ollama**：速度快、免费用、数据不出本机
 
 ## 隐私
 
-- `.env`、`docs/`、`chroma_db/` 默认在 `.gitignore` 中，不会提交到 GitHub
-- API Key 等敏感信息只存储在本地 `.env` 文件
+- `.env`、`docs/`（含 PDF）、`chroma_db/` 均在 `.gitignore` 中，不会提交
+- API Key 只存在本地 `.env` 文件
