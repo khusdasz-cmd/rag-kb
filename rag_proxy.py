@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -38,6 +39,17 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("rag-proxy")
+
+# ── First-run setup ──────────────────────────────────────────────────────────
+env_path = Path(__file__).parent / ".env"
+env_example = Path(__file__).parent / ".env.example"
+if not env_path.exists() and env_example.exists():
+    shutil.copy(env_example, env_path)
+    log.info("Created .env from .env.example — edit it before use")
+
+docs_dir = Path(__file__).parent / "docs"
+docs_dir.mkdir(exist_ok=True)
+# ─────────────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="RAG Proxy")
 vectorstore = None

@@ -23,6 +23,7 @@ CHUNK_OVERLAP = 100
 
 
 def main():
+    DOCS_DIR.mkdir(exist_ok=True)
     pdf_files = list(DOCS_DIR.glob("*.pdf"))
     if not pdf_files:
         print(f"[!] No PDF files found in {DOCS_DIR}")

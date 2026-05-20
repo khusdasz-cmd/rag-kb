@@ -1,7 +1,10 @@
 # Privacy — never commit
 .env
-docs/
+docs/*.pdf
 chroma_db/
+
+# But keep the directory structure
+!docs/.gitkeep
 
 # Python
 __pycache__/
