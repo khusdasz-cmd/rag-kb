@@ -1,4 +1,4 @@
-# LLM-RAG-KB
+# rag-kb
 
 **本地知识库问答系统** — 下载即用，支持 Ollama / LM Studio / OpenAI 多后端，配合 Chatbox 使用。
 
@@ -13,11 +13,11 @@
 
 ```bash
 # 下载
-git clone https://github.com/khusdasz-cmd/-RAG-.git
-cd -RAG-
+git clone https://github.com/khusdasz-cmd/rag-kb.git
+cd rag-kb
 
 # 安装依赖
-pip install -r requirements.txt
+pip install -e .
 
 # 编辑配置（首次运行会自动从 .env.example 生成）
 # 按需修改 LLM_TYPE、API Key、模型名等
@@ -74,14 +74,18 @@ OPENAI_MODEL=gpt-4o-mini
 ## 项目结构
 
 ```
-├── rag_proxy.py          # RAG 代理服务（核心）
-├── ingest.py             # PDF 导入脚本
-├── .env                  # 配置文件（自动生成，已 gitignore）
-├── .env.example          # 配置模板
-├── requirements.txt      # 依赖
-├── chroma_db/            # 向量数据库（导入时自动生成，已 gitignore）
-└── docs/                 # 放 PDF 文件（自动创建，已 gitignore）
-    └── .gitkeep
+├── rag_kb/                 # 核心 Python 包
+│   ├── rag_proxy.py        # RAG 代理服务（FastAPI）
+│   ├── ingest.py           # PDF 导入脚本
+│   └── embedder.py         # Ollama embedding 客户端
+├── ingest.py               # 入口（委托给 rag_kb.ingest）
+├── rag_proxy.py            # 入口（委托给 rag_kb.rag_proxy）
+├── .env                    # 配置文件（自动生成，已 gitignore）
+├── .env.example            # 配置模板
+├── pyproject.toml          # 项目元数据与依赖
+├── LICENSE                 # MIT 许可证
+├── chroma_db/              # 向量数据库（导入时自动生成，已 gitignore）
+└── docs/                   # 放 PDF 文件（自动创建，已 gitignore）
 ```
 
 ## 工作原理
