@@ -2,6 +2,7 @@
 .env
 docs/*.pdf
 chroma_db/
+feedback.db
 
 # But keep the directory structure
 !docs/.gitkeep

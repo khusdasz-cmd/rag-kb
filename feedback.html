@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 反馈与优化看板</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 16px; color: #1a1a1a; }
+
+  /* ── Stats ── */
+  .stats { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat-card { background: #fff; border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 110px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .stat-card .num { font-size: 26px; font-weight: 700; }
+  .stat-card .label { font-size: 11px; color: #888; margin-top: 2px; }
+  .stat-card.green .num { color: #22c55e; }
+  .stat-card.red .num { color: #ef4444; }
+  .stat-card.blue .num { color: #3b82f6; }
+  .stat-card.amber .num { color: #f59e0b; }
+
+  /* ── Health Panel ── */
+  .health-panel { background: #fff; border-radius: 8px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .health-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #1a1a1a; }
+  .health-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .health-item { flex: 1; min-width: 100px; }
+  .health-item .val { font-size: 20px; font-weight: 700; }
+  .health-item .val.good { color: #22c55e; }
+  .health-item .val.warn { color: #f59e0b; }
+  .health-item .val.bad { color: #ef4444; }
+  .health-item .lbl { font-size: 11px; color: #888; margin-top: 1px; }
+
+  /* ── Suggestions ── */
+  .suggestions { margin-bottom: 8px; }
+  .suggestion { padding: 10px 14px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; display: flex; align-items: flex-start; gap: 10px; }
+  .suggestion .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .suggestion .body { flex: 1; }
+  .suggestion .issue { font-weight: 600; margin-bottom: 2px; }
+  .suggestion .detail { color: #555; margin-bottom: 4px; }
+  .suggestion .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggestion .apply-btn { padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all .15s; }
+  .suggestion .apply-btn:hover { opacity: .85; }
+  .suggestion .apply-btn.primary { background: #3b82f6; color: #fff; }
+  .suggestion .apply-btn.danger { background: #ef4444; color: #fff; }
+  .suggestion .apply-btn:disabled { background: #d1d5db; cursor: default; }
+  .suggestion.danger { background: #fef2f2; border-left: 3px solid #ef4444; }
+  .suggestion.warning { background: #fffbeb; border-left: 3px solid #f59e0b; }
+  .suggestion.info { background: #eff6ff; border-left: 3px solid #3b82f6; }
+  .no-suggestion { font-size: 13px; color: #999; padding: 8px 0; }
+
+  /* ── Improvement Log ── */
+  .improv-panel { background: #fff; border-radius: 8px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .improv-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #1a1a1a; }
+  .improv-empty { font-size: 13px; color: #999; padding: 8px 0; }
+  .improv-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+  .improv-item:last-child { border-bottom: none; }
+  .improv-item .time { color: #999; font-size: 11px; white-space: nowrap; flex-shrink: 0; padding-top: 1px; }
+  .improv-item .arrow { color: #22c55e; font-weight: 700; }
+  .improv-item .old-v { text-decoration: line-through; color: #ef4444; }
+  .improv-item .new-v { color: #22c55e; font-weight: 600; }
+  .improv-item .reason { color: #888; font-size: 12px; }
+  .improv-badge { display: inline-block; font-size: 10px; padding: 1px 8px; border-radius: 8px; background: #dcfce7; color: #166534; margin-left: 6px; }
+
+  /* ── Strategy Panel ── */
+  .strategy-panel { background: #fff; border-radius: 8px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .strategy-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .strategy-item { flex: 1; min-width: 85px; }
+  .strategy-item .val { font-size: 18px; font-weight: 700; font-family: monospace; }
+  .strategy-item .lbl { font-size: 10px; color: #888; margin-top: 1px; }
+  .strategy-ctrl { border-top: 1px solid #eee; padding-top: 10px; margin-top: 4px; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .strategy-ctrl select { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+  .strategy-ctrl .apply-btn { padding: 4px 14px; background: #3b82f6; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .strategy-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .strategy-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #eee; font-size: 11px; color: #888; }
+  .strategy-table th.right { text-align: right; }
+  .strategy-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .strategy-table td.right { text-align: right; }
+  .strategy-table .best-row { background: #f0fdf4; }
+  .strategy-table .best-badge { font-size: 10px; background: #22c55e; color: #fff; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+  .strategy-table .rate-high { color: #22c55e; font-weight: 600; }
+  .strategy-table .rate-mid { color: #f59e0b; font-weight: 600; }
+  .strategy-table .rate-low { color: #ef4444; font-weight: 600; }
+  .strategy-empty { font-size: 13px; color: #999; padding: 8px 0; }
+
+  /* ── Config ── */
+  .config-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: #fff; border-radius: 8px; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: 13px; }
+  .config-bar label { font-weight: 600; }
+  .config-bar select { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+  .config-toast { font-size: 12px; color: #22c55e; margin-left: 6px; }
+
+  /* ── Filter ── */
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-btn { padding: 5px 14px; border: 1px solid #ddd; border-radius: 14px; background: #fff; cursor: pointer; font-size: 12px; transition: all .15s; }
+  .filter-btn:hover { border-color: #bbb; }
+  .filter-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+  /* ── Query List ── */
+  .query-list { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .query-item { padding: 14px 16px; border-bottom: 1px solid #eee; display: flex; align-items: flex-start; gap: 12px; }
+  .query-item:last-child { border-bottom: none; }
+  .query-text { flex: 1; }
+  .query-text .q { font-weight: 600; margin-bottom: 4px; }
+  .query-text .meta { font-size: 12px; color: #999; }
+  .query-text .badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-left: 6px; }
+  .badge.up { background: #dcfce7; color: #166534; }
+  .badge.down { background: #fee2e2; color: #991b1b; }
+  .badge.wait { background: #fef3c7; color: #92400e; }
+  .badge.miss { background: #f3e8ff; color: #6b21a8; }
+  .badge.other { background: #f3f4f6; color: #6b7280; }
+
+  .btn-group { display: flex; gap: 4px; flex-shrink: 0; }
+  .btn { cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 6px; padding: 6px 10px; font-size: 16px; line-height: 1; transition: all .15s; }
+  .btn:hover { border-color: #bbb; }
+  .btn.active-up { background: #dcfce7; border-color: #22c55e; }
+  .btn.active-down { background: #fee2e2; border-color: #ef4444; }
+
+  .comment-input { display: none; margin-top: 6px; }
+  .comment-input textarea { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; resize: none; }
+  .comment-input .save-btn { margin-top: 4px; padding: 4px 12px; background: #3b82f6; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+  .loading { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>RAG 反馈与优化看板</h1>
+
+  <!-- Stats -->
+  <div id="stats" class="stats"></div>
+
+  <!-- Health + Suggestions -->
+  <div id="health" class="health-panel" style="display:none">
+    <div class="health-title">🔍 系统健康分析与优化建议</div>
+    <div id="healthGrid" class="health-grid"></div>
+    <div id="suggestions" class="suggestions"></div>
+  </div>
+
+  <!-- Config -->
+  <div id="configBar" class="config-bar" style="display:none">
+    <label>TOP_K（检索文档块数）：</label>
+    <select id="topKSelect">
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="6">6</option><option value="8">8</option>
+      <option value="10">10</option><option value="15">15</option>
+    </select>
+    <button class="save-btn" onclick="applyTopK()" style="padding:4px 14px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">应用</button>
+    <span id="configToast" class="config-toast"></span>
+  </div>
+
+  <!-- Improvement Log -->
+  <div id="improvPanel" class="improv-panel" style="display:none">
+    <div class="improv-title">📝 改进记录</div>
+    <div id="improvList"></div>
+  </div>
+
+  <!-- Strategy Panel -->
+  <div id="strategyPanel" class="strategy-panel" style="display:none">
+    <div class="health-title">🎯 搜索策略与效果对比</div>
+    <div id="strategyCurrent" class="strategy-grid"></div>
+    <div id="strategyTable" class="strategy-empty">加载中...</div>
+    <div class="strategy-ctrl">
+      <label><b>切换预设：</b></label>
+      <select id="strategyPreset">
+        <option value="">-- 手动模式 --</option>
+        <option value="similarity">similarity（默认）</option>
+        <option value="mmr">MMR（平衡）</option>
+        <option value="mmr_diverse">MMR（多样）</option>
+        <option value="threshold">分数阈值</option>
+      </select>
+      <button class="apply-btn" onclick="applyStrategyPreset()">应用</button>
+      <span id="strategyToast" style="font-size:12px;color:#22c55e;"></span>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">全部</button>
+    <button class="filter-btn" data-filter="up" onclick="setFilter('up')">好评</button>
+    <button class="filter-btn" data-filter="down" onclick="setFilter('down')">差评</button>
+    <button class="filter-btn" data-filter="unrated" onclick="setFilter('unrated')">未评价</button>
+    <button class="filter-btn" data-filter="miss" onclick="setFilter('miss')">检索遗漏</button>
+  </div>
+
+  <!-- Logs -->
+  <div class="query-list" id="logs"></div>
+</div>
+<script>
+const API = '';
+let allLogs = [];
+let currentFilter = 'all';
+
+const STRATEGY_PRESETS = {
+  similarity: {search_type:"similarity", top_k:4},
+  mmr: {search_type:"mmr", top_k:4, fetch_k:20, lambda_mult:0.7},
+  mmr_diverse: {search_type:"mmr", top_k:6, fetch_k:30, lambda_mult:0.4},
+  threshold: {search_type:"similarity_score_threshold", top_k:6, score_threshold:0.15},
+};
+
+async function load() {
+  const [sum, logs, insights, config, improv, strategy, stats] = await Promise.all([
+    fetch(API + '/v1/feedback/summary').then(r => r.json()).catch(() => null),
+    fetch(API + '/v1/feedback/logs?limit=100').then(r => r.json()).catch(() => []),
+    fetch(API + '/v1/feedback/insights').then(r => r.json()).catch(() => null),
+    fetch(API + '/v1/config').then(r => r.json()).catch(() => null),
+    fetch(API + '/v1/feedback/improvements').then(r => r.json()).catch(() => []),
+    fetch(API + '/v1/strategy').then(r => r.json()).catch(() => null),
+    fetch(API + '/v1/strategy/stats').then(r => r.json()).catch(() => null),
+  ]);
+  if (sum) renderStats(sum);
+  if (insights) renderHealth(insights);
+  if (config) renderConfig(config);
+  if (improv) renderImprovements(improv);
+  if (strategy) renderStrategy(strategy, stats);
+  allLogs = logs;
+  renderLogs(logs);
+}
+
+/* ── Stats ── */
+function renderStats(s) {
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card blue"><div class="num">${s.total_queries}</div><div class="label">总提问</div></div>
+    <div class="stat-card green"><div class="num">${s.thumbs_up}</div><div class="label">好评 (${(s.thumbs_up_rate*100).toFixed(0)}%)</div></div>
+    <div class="stat-card red"><div class="num">${s.thumbs_down}</div><div class="label">差评</div></div>
+    <div class="stat-card"><div class="num">${s.rated}</div><div class="label">已评价</div></div>
+  `;
+}
+
+/* ── Health + Suggestions ── */
+function renderHealth(h) {
+  const panel = document.getElementById('health');
+  panel.style.display = 'block';
+
+  const missRate = h.retrieval_miss.rate;
+  const upRate = h.thumbs_up_rate;
+
+  document.getElementById('healthGrid').innerHTML = `
+    <div class="health-item">
+      <div class="val ${missRate < 0.1 ? 'good' : missRate < 0.3 ? 'warn' : 'bad'}">${(missRate*100).toFixed(0)}%</div>
+      <div class="lbl">检索遗漏率 (${h.retrieval_miss.count}/${h.total_queries})</div>
+    </div>
+    <div class="health-item">
+      <div class="val ${(h.low_context.rate||0) < 0.1 ? 'good' : (h.low_context.rate||0) < 0.25 ? 'warn' : 'bad'}">${((h.low_context.rate||0)*100).toFixed(0)}%</div>
+      <div class="lbl">低上下文率 (${h.low_context.count}/${h.total_queries})</div>
+    </div>
+    <div class="health-item">
+      <div class="val ${upRate >= 0.8 ? 'good' : upRate >= 0.5 ? 'warn' : 'bad'}">${h.rated > 0 ? (upRate*100).toFixed(0)+'%' : '-'}</div>
+      <div class="lbl">好评率 (${h.thumbs_up}/${h.rated})</div>
+    </div>
+    <div class="health-item">
+      <div class="val">${h.total_queries}</div>
+      <div class="lbl">总查询</div>
+    </div>
+  `;
+
+  // Suggestions
+  const el = document.getElementById('suggestions');
+  if (!h.suggestions || !h.suggestions.length) {
+    el.innerHTML = '<div class="no-suggestion">✅ 系统运行正常，暂无优化建议</div>';
+    return;
+  }
+  const iconMap = { danger: '🔴', warning: '🟡', info: '🔵' };
+  el.innerHTML = h.suggestions.map((s, i) => `
+    <div class="suggestion ${s.type}">
+      <div class="icon">${iconMap[s.type] || 'ℹ️'}</div>
+      <div class="body">
+        <div class="issue">${s.issue}</div>
+        <div class="detail">${s.detail}</div>
+        <div class="actions">
+          <button class="apply-btn ${s.type === 'danger' ? 'danger' : 'primary'}" onclick="applySuggestion(${i})">⚡ ${s.action}</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ── Suggestions: One-click apply ── */
+async function applySuggestion(i) {
+  const h = await fetch(API + '/v1/feedback/insights').then(r => r.json());
+  const s = h.suggestions[i];
+  if (!s) return;
+
+  const btn = document.querySelectorAll('.apply-btn')[i];
+  if (btn) btn.disabled = true;
+
+  // Parse action and map to concrete change
+  let oldV = '', newV = '';
+  if (s.action.includes('TOP_K')) {
+    const cur = await fetch(API + '/v1/config').then(r => r.json());
+    oldV = `TOP_K: ${cur.top_k}`;
+    const newK = Math.min(cur.top_k * 2, 15);
+    await fetch(API + '/v1/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({top_k: newK}),
+    });
+    newV = `TOP_K: ${newK}`;
+    document.getElementById('topKSelect').value = newK;
+    document.getElementById('configToast').textContent = `✓ 已设为 ${newK}`;
+    setTimeout(() => document.getElementById('configToast').textContent = '', 3000);
+  } else if (s.action.includes('优化 prompt') || s.action.includes('优化检索')) {
+    // Can't auto-apply prompt changes, just log the suggestion
+    newV = s.suggestion;
+  } else if (s.action.includes('更换模型')) {
+    newV = '建议切换到更强模型';
+  } else {
+    newV = s.suggestion;
+  }
+
+  // Log the improvement
+  await fetch(API + '/v1/feedback/improvements', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      action: s.action,
+      reason: s.issue + '：' + s.detail,
+      old_value: oldV,
+      new_value: newV,
+    }),
+  });
+
+  // Refresh
+  const improv = await fetch(API + '/v1/feedback/improvements').then(r => r.json());
+  renderImprovements(improv);
+  if (btn) setTimeout(() => btn.disabled = false, 1000);
+}
+
+/* ── Config ── */
+function renderConfig(c) {
+  const bar = document.getElementById('configBar');
+  bar.style.display = 'flex';
+  document.getElementById('topKSelect').value = c.top_k;
+}
+
+async function applyTopK() {
+  const k = parseInt(document.getElementById('topKSelect').value);
+  const old = await fetch(API + '/v1/config').then(r => r.json());
+  await fetch(API + '/v1/config', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({top_k: k}),
+  });
+  const toast = document.getElementById('configToast');
+  toast.textContent = `✓ 已设为 ${k}`;
+  setTimeout(() => toast.textContent = '', 3000);
+
+  // Log manual change
+  await fetch(API + '/v1/feedback/improvements', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      action: '手动调参',
+      reason: `TOP_K: ${old.top_k} → ${k}`,
+      old_value: `TOP_K: ${old.top_k}`,
+      new_value: `TOP_K: ${k}`,
+    }),
+  });
+  const improv = await fetch(API + '/v1/feedback/improvements').then(r => r.json());
+  renderImprovements(improv);
+}
+
+/* ── Improvement History ── */
+function renderImprovements(items) {
+  const panel = document.getElementById('improvPanel');
+  if (!items.length) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+
+  document.getElementById('improvList').innerHTML = items.map(item => {
+    const hasChange = item.old_value && item.new_value && item.old_value !== item.new_value;
+    return `<div class="improv-item">
+      <div class="time">${item.created_at ? item.created_at.slice(5, 16) : ''}</div>
+      <div class="body">
+        <strong>${esc(item.action)}</strong>
+        ${hasChange ? `<span class="old-v">${esc(typeof item.old_value === 'string' ? item.old_value : JSON.stringify(item.old_value))}</span> <span class="arrow">→</span> <span class="new-v">${esc(typeof item.new_value === 'string' ? item.new_value : JSON.stringify(item.new_value))}</span>` : ''}
+        ${item.reason ? `<div class="reason">${esc(item.reason)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Strategy ── */
+function renderStrategy(strategy, stats) {
+  const panel = document.getElementById('strategyPanel');
+  panel.style.display = 'block';
+
+  // Current params
+  document.getElementById('strategyCurrent').innerHTML = `
+    <div class="strategy-item">
+      <div class="val" style="color:#3b82f6">${esc(strategy.search_type)}</div>
+      <div class="lbl">检索策略</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val">${strategy.top_k}</div>
+      <div class="lbl">top_k</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val">${strategy.lambda_mult}</div>
+      <div class="lbl">lambda_mult</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val">${strategy.score_threshold}</div>
+      <div class="lbl">阈值</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val ${strategy.auto_tune ? 'rate-high' : 'rate-low'}">${strategy.auto_tune ? '开启' : '关闭'}</div>
+      <div class="lbl">自动调参</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val ${strategy.query_classify ? 'rate-high' : ''}">${strategy.query_classify ? '开启' : '关闭'}</div>
+      <div class="lbl">查询分类</div>
+    </div>
+    <div class="strategy-item">
+      <div class="val ${strategy.query_rewrite ? 'rate-high' : ''}">${strategy.query_rewrite ? '开启' : '关闭'}</div>
+      <div class="lbl">查询重写</div>
+    </div>
+  `;
+
+  // Stats table
+  const rows = stats?.strategies || [];
+  const el = document.getElementById('strategyTable');
+  if (!rows.length) {
+    el.innerHTML = '<div class="strategy-empty">暂无策略数据，继续使用就会生成</div>';
+    return;
+  }
+  const bestRate = Math.max(...rows.map(r => {
+    const t = (r.thumbs_up || 0) + (r.thumbs_down || 0);
+    return t > 0 ? (r.thumbs_up || 0) / t : 0;
+  }));
+
+  el.innerHTML = `<table class="strategy-table">
+    <thead><tr>
+      <th>策略</th><th class="right">查询</th><th class="right">👍</th><th class="right">👎</th><th class="right">好评率</th>
+    </tr></thead>
+    <tbody>${rows.map(r => {
+      const total = (r.thumbs_up || 0) + (r.thumbs_down || 0);
+      const rate = total > 0 ? (r.thumbs_up || 0) / total : 0;
+      const isBest = total > 0 && rate === bestRate;
+      const rateCls = rate >= 0.8 ? 'rate-high' : rate >= 0.5 ? 'rate-mid' : 'rate-low';
+      return `<tr class="${isBest ? 'best-row' : ''}">
+        <td style="font-family:monospace;font-size:12px;">${esc(r.strategy_id)}${isBest ? '<span class="best-badge">最优</span>' : ''}</td>
+        <td class="right">${r.query_count}</td>
+        <td class="right" style="color:#22c55e">${r.thumbs_up || 0}</td>
+        <td class="right" style="color:#ef4444">${r.thumbs_down || 0}</td>
+        <td class="right ${rateCls}">${total > 0 ? (rate*100).toFixed(0)+'%' : '-'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+async function applyStrategyPreset() {
+  const key = document.getElementById('strategyPreset').value;
+  if (!key || !STRATEGY_PRESETS[key]) return;
+  const payload = STRATEGY_PRESETS[key];
+  const btn = document.querySelector('.strategy-ctrl .apply-btn');
+  btn.disabled = true;
+  try {
+    await fetch(API + '/v1/strategy', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const toast = document.getElementById('strategyToast');
+    toast.textContent = `✓ 已切换至 ${key}`;
+    setTimeout(() => toast.textContent = '', 3000);
+    // Refresh
+    const [strategy, stats] = await Promise.all([
+      fetch(API + '/v1/strategy').then(r => r.json()),
+      fetch(API + '/v1/strategy/stats').then(r => r.json()),
+    ]);
+    renderStrategy(strategy, stats);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Filter ── */
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === f);
+  });
+  renderLogs(allLogs);
+}
+
+/* ── Logs ── */
+function renderLogs(logs) {
+  const el = document.getElementById('logs');
+  if (!logs.length) { el.innerHTML = '<div class="loading">暂无记录</div>'; return; }
+
+  let filtered = logs;
+  if (currentFilter === 'up') filtered = logs.filter(r => r.rating === 1);
+  else if (currentFilter === 'down') filtered = logs.filter(r => r.rating === -1);
+  else if (currentFilter === 'unrated') filtered = logs.filter(r => r.rating === null);
+  else if (currentFilter === 'miss') filtered = logs.filter(r => r.context_count === 0);
+
+  if (!filtered.length) { el.innerHTML = '<div class="loading">无匹配记录</div>'; return; }
+
+  el.innerHTML = filtered.map(r => {
+    const rating = r.rating;
+    const cls = rating === 1 ? 'active-up' : rating === -1 ? 'active-down' : '';
+    const badge = rating === 1 ? '<span class="badge up">👍</span>' : rating === -1 ? '<span class="badge down">👎</span>' : '<span class="badge wait">待评价</span>';
+    const missTag = r.context_count === 0 ? '<span class="badge miss">检索遗漏</span>' : '';
+    const catTag = rating === -1 && r.category ? `<span class="badge ${r.category}">${r.category.replace('_', ' ')}</span>` : '';
+    return `<div class="query-item" data-id="${r.id}">
+      <div class="btn-group">${[1, -1].map(v => `<button class="btn ${v === 1 ? 'up' : 'down'} ${rating === v ? 'active-' + (v === 1 ? 'up' : 'down') : ''}" onclick="rate('${r.id}', ${v})">${v === 1 ? '👍' : '👎'}</button>`).join('')}</div>
+      <div class="query-text">
+        <div class="q">${esc(r.query)} ${badge} ${missTag} ${catTag}</div>
+        <div class="meta">${r.created_at} · ${r.context_count} 个文档块</div>
+        <div class="comment-input" id="ci-${r.id}"><textarea rows="2" placeholder="补充说明...">${esc(r.comment || '')}</textarea><button class="save-btn" onclick="saveComment('${r.id}')">保存</button></div>
+        <div style="font-size:12px;color:#666;margin-top:4px">${esc(r.answer_preview || '')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function rate(id, v) {
+  await fetch(API + '/v1/feedback', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id, rating: v}) });
+  load();
+}
+
+async function saveComment(id) {
+  const v = document.querySelector(`#ci-${id} textarea`).value;
+  await fetch(API + '/v1/feedback', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id, rating: null, comment: v}) });
+  load();
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+load();
+</script>
+</body>
+</html>
