@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, asdict
-from datetime import datetime
 from typing import Any, Literal, Optional
 
 SearchType = Literal["similarity", "mmr", "similarity_score_threshold", "similarity_with_score"]
@@ -359,15 +357,27 @@ def parse_strategy_id(sid: str) -> dict:
     result = {"search_type": parts[0]}
     for p in parts[1:]:
         if p.startswith("k"):
-            try: result["top_k"] = int(p[1:])
-            except: pass
+            _safe_set_int(result, "top_k", p[1:])
         elif p.startswith("f"):
-            try: result["fetch_k"] = int(p[1:])
-            except: pass
+            _safe_set_int(result, "fetch_k", p[1:])
         elif p.startswith("l"):
-            try: result["lambda_mult"] = float(p[1:])
-            except: pass
+            _safe_set_float(result, "lambda_mult", p[1:])
         elif p.startswith("t"):
-            try: result["score_threshold"] = float(p[1:])
-            except: pass
+            _safe_set_float(result, "score_threshold", p[1:])
     return result
+
+
+def _safe_set_int(d: dict, key: str, val: str) -> None:
+    """Parse val as int and store in d[key]; silently ignore on failure."""
+    try:
+        d[key] = int(val)
+    except (ValueError, TypeError):
+        pass
+
+
+def _safe_set_float(d: dict, key: str, val: str) -> None:
+    """Parse val as float and store in d[key]; silently ignore on failure."""
+    try:
+        d[key] = float(val)
+    except (ValueError, TypeError):
+        pass

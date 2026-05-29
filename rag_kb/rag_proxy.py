@@ -729,7 +729,7 @@ async def get_insights():
                     "type": "warning",
                     "issue": "检索遗漏导致差评",
                     "detail": f"差评集中在「没有找到相关资料」（{top_cat['count']} 次）",
-                    "suggestion": f"调高 TOP_K 或重新导入文档",
+                    "suggestion": "调高 TOP_K 或重新导入文档",
                 })
             elif top_cat["name"] == "too_long":
                 suggestions.append({

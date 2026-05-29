@@ -14,6 +14,11 @@ __pycache__/
 dist/
 build/
 
+# Test artifacts
+.coverage
+.pytest_cache/
+htmlcov/
+
 # Jupyter
 .ipynb_checkpoints/
 

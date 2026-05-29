@@ -1,5 +1,7 @@
 # rag-kb
 
+[![CI](https://github.com/khusdasz-cmd/rag-kb/actions/workflows/ci.yml/badge.svg)](https://github.com/khusdasz-cmd/rag-kb/actions/workflows/ci.yml)
+
 **本地知识库问答系统** — 下载即用，支持 Ollama / LM Studio / OpenAI 多后端，配合 Chatbox 使用。
 内置用户反馈闭环与自适应搜索策略，越用越好。
 
